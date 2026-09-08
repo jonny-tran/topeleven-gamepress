@@ -1,0 +1,27 @@
+{
+  "name": "@topEleven-gamepress/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@topEleven-gamepress/auth": "workspace:*",
+    "@topEleven-gamepress/db": "workspace:*",
+    "@topEleven-gamepress/env": "workspace:*",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@topEleven-gamepress/config": "workspace:*",
+    "elysia": "catalog:",
+    "typescript": "catalog:"
+  }
+}

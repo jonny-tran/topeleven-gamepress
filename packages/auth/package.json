@@ -1,0 +1,24 @@
+{
+  "name": "@topEleven-gamepress/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@topEleven-gamepress/db": "workspace:*",
+    "@topEleven-gamepress/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@topEleven-gamepress/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}
