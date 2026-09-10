@@ -11,8 +11,20 @@ const app = new Elysia()
     cors({
       origin: env.CORS_ORIGIN,
       methods: ["GET", "POST", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      // Allow cookies/credentials headers so Safari iOS preflight succeeds
+      // and Better Auth can read its session cookie on cross-origin POST.
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "Cookie",
+        "Set-Cookie",
+        "X-Requested-With",
+      ],
+      // Expose Set-Cookie so the browser accepts the session cookie and
+      // reads back-dated cookies on subsequent requests.
+      exposedHeaders: ["Set-Cookie", "Content-Length"],
       credentials: true,
+      maxAge: 86400,
     }),
   )
   .all("/api/auth/*", async (context) => {

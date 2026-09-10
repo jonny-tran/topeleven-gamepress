@@ -48,6 +48,7 @@
     "deploy:check": "vercel deploy --dry"
   },
   "dependencies": {
+    "@better-auth/infra": "^0.4.9",
     "@topEleven-gamepress/env": "workspace:*",
     "dotenv": "catalog:",
     "zod": "catalog:"
