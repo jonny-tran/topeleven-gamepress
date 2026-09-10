@@ -6,77 +6,139 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * ═══════════════════════════════════════════════════════════════════════
+ * topEleven-gamepress Design System
+ * Style: Sporty Bold · Brand: Emerald (sân cỏ) · Hybrid layout
+ *
+ * Color space: OKLCH (Tailwind v4 standard)
+ * ═══════════════════════════════════════════════════════════════════════
+ */
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* ── Base surfaces (trắng tinh cho light mode, gần đen cho dark) ── */
+  --background: oklch(0.99 0.005 155);
+  --foreground: oklch(0.18 0.025 165);
+
+  /* ── Card / popover hơi nhô khỏi nền ── */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.18 0.025 165);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.18 0.025 165);
+
+  /* ── Primary: Emerald đậm – màu nhận diện thương hiệu ── */
+  --primary: oklch(0.55 0.18 155);
+  --primary-foreground: oklch(0.99 0.005 155);
+
+  /* ── Secondary: xanh rêu đậm cho tiêu đề/heading phụ ── */
+  --secondary: oklch(0.93 0.025 155);
+  --secondary-foreground: oklch(0.28 0.05 165);
+
+  /* ── Muted: nền phụ (card nhạt, sidebar) ── */
+  --muted: oklch(0.96 0.012 155);
+  --muted-foreground: oklch(0.5 0.02 165);
+
+  /* ── Accent: hover state / link phụ ── */
+  --accent: oklch(0.93 0.03 155);
+  --accent-foreground: oklch(0.28 0.05 165);
+
+  /* ── Destructive: đỏ thẻ phạt ── */
   --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --destructive-foreground: oklch(0.99 0.005 155);
+
+  /* ── Border + input: viền mảnh, tone xanh rêu rất nhạt ── */
+  --border: oklch(0.9 0.015 155);
+  --input: oklch(0.9 0.015 155);
+  --ring: oklch(0.55 0.18 155);
+
+  /* ── Charts: dải 5 màu theo thứ tự – emerald → blue → amber → violet → rose ── */
+  --chart-1: oklch(0.62 0.18 155); /* emerald – chính */
+  --chart-2: oklch(0.6 0.18 245);  /* blue */
+  --chart-3: oklch(0.72 0.18 75);  /* amber – bàn thắng */
+  --chart-4: oklch(0.58 0.2 290); /* violet */
+  --chart-5: oklch(0.6 0.22 25);   /* rose – thẻ đỏ */
+
+  /* ── Sport-specific semantic colors ── */
+  --success: oklch(0.65 0.17 155);            /* thẻ xanh – bàn thắng / đội thắng */
+  --success-foreground: oklch(0.99 0.005 155);
+  --warning: oklch(0.78 0.17 75);             /* thẻ vàng – cảnh cáo */
+  --warning-foreground: oklch(0.25 0.05 75);
+  --info: oklch(0.6 0.18 245);                /* thẻ xanh dương – thông tin */
+  --info-foreground: oklch(0.99 0.005 245);
+
+  /* ── Radius: nhỏ, sắc nét (sporty) ── */
+  --radius: 0.5rem;
+
+  /* ── Sidebar (admin panel) ── */
+  --sidebar: oklch(0.97 0.012 155);
+  --sidebar-foreground: oklch(0.22 0.03 165);
+  --sidebar-primary: oklch(0.55 0.18 155);
+  --sidebar-primary-foreground: oklch(0.99 0.005 155);
+  --sidebar-accent: oklch(0.93 0.03 155);
+  --sidebar-accent-foreground: oklch(0.28 0.05 165);
+  --sidebar-border: oklch(0.88 0.015 155);
+  --sidebar-ring: oklch(0.55 0.18 155);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --background: oklch(0.16 0.02 165);
+  --foreground: oklch(0.97 0.005 155);
+
+  --card: oklch(0.21 0.025 165);
+  --card-foreground: oklch(0.97 0.005 155);
+  --popover: oklch(0.21 0.025 165);
+  --popover-foreground: oklch(0.97 0.005 155);
+
+  /* Brand emerald sáng hơn để đủ tương phản trên nền tối */
+  --primary: oklch(0.72 0.18 155);
+  --primary-foreground: oklch(0.16 0.025 165);
+
+  --secondary: oklch(0.28 0.03 165);
+  --secondary-foreground: oklch(0.97 0.005 155);
+
+  --muted: oklch(0.25 0.022 165);
+  --muted-foreground: oklch(0.7 0.02 155);
+
+  --accent: oklch(0.32 0.04 165);
+  --accent-foreground: oklch(0.97 0.005 155);
+
+  --destructive: oklch(0.68 0.22 27);
+  --destructive-foreground: oklch(0.16 0.02 165);
+
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --ring: oklch(0.72 0.18 155);
+
+  --chart-1: oklch(0.75 0.18 155);
+  --chart-2: oklch(0.7 0.18 245);
+  --chart-3: oklch(0.78 0.17 75);
+  --chart-4: oklch(0.68 0.2 290);
+  --chart-5: oklch(0.72 0.22 25);
+
+  --success: oklch(0.72 0.17 155);
+  --success-foreground: oklch(0.16 0.025 165);
+  --warning: oklch(0.82 0.17 75);
+  --warning-foreground: oklch(0.2 0.05 75);
+  --info: oklch(0.7 0.18 245);
+  --info-foreground: oklch(0.16 0.025 165);
+
+  --sidebar: oklch(0.19 0.024 165);
+  --sidebar-foreground: oklch(0.97 0.005 155);
+  --sidebar-primary: oklch(0.72 0.18 155);
+  --sidebar-primary-foreground: oklch(0.16 0.025 165);
+  --sidebar-accent: oklch(0.28 0.035 165);
+  --sidebar-accent-foreground: oklch(0.97 0.005 155);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.72 0.18 155);
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
+  /* Font family – Inter cho UI, JetBrains Mono cho số liệu */
+  --font-sans: "Inter Variable", "Geist", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "Geist Mono", monospace;
+  --font-display: "Inter Variable", system-ui, sans-serif;
+
+  /* ── Color tokens cho Tailwind utilities ── */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -94,6 +156,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -108,6 +171,16 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+
+  /* Semantic sport tokens */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* ── Radius scale ── */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -115,16 +188,225 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* ── Font weight scale – sporty bold: heading luôn bold ── */
+  --font-weight-display: 800;
+  --font-weight-heading: 700;
+  --font-weight-body: 500;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+ * Base layer
+ * ═══════════════════════════════════════════════════════════════════════ */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply font-sans bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
   html {
     @apply font-sans;
+  }
+
+  /* Tighten scrollbar in dark mode */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(from var(--border) l c h);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Component utility classes – dùng đồng nhất trong toàn bộ web
+ * ═══════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* Sporty section title – dùng cho đầu mỗi card/panel */
+  .cn-section-title {
+    @apply text-[11px] font-bold tracking-[0.12em] text-muted-foreground uppercase;
+  }
+
+  /* Big stat number – dùng cho điểm số, số trận, v.v. */
+  .cn-stat-number {
+    @apply font-mono text-2xl font-bold tabular-nums;
+  }
+
+  /* Pill chip – dùng cho tag trạng thái nhỏ (Pot, Bảng, v.v.) */
+  .cn-pill {
+    @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium tracking-wide;
+  }
+
+  /* Container chuẩn – dùng cho mọi page content */
+  .cn-page {
+    @apply mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8;
+  }
+
+  /* Sticky admin page header */
+  .cn-admin-header {
+    @apply sticky top-0 z-10 flex items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur;
+  }
+
+  /* Card hover effect – dùng cho danh sách card (giải đấu, đội) */
+  .cn-card-hover {
+    @apply transition-all hover:border-primary/30 hover:shadow-md hover:shadow-primary/5;
+  }
+}
+
+@layer utilities {
+  /* Gradient brand background – dùng cho hero, admin shell header */
+  .bg-brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      var(--primary) 0%,
+      oklch(from var(--primary) calc(l + 0.05) c h) 50%,
+      oklch(from var(--primary) calc(l - 0.05) c h) 100%
+    );
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * Football-themed utilities – dùng riêng cho màn bốc thăm
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Sân cỏ nhẹ nhàng: gradient xanh từ mép ra giữa, không quá rõ để không
+     gây rối mắt nhưng đủ để gợi cảm giác sân bóng. */
+  .bg-pitch {
+    background-image:
+      radial-gradient(
+        ellipse 80% 60% at 50% 0%,
+        oklch(from var(--primary) l c h / 0.18) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 60% 80% at 100% 100%,
+        oklch(from var(--primary) l c h / 0.1) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 70% at 0% 100%,
+        oklch(from var(--primary) l c h / 0.08) 0%,
+        transparent 70%
+      );
+  }
+
+  /* Vạch kẻ sân cỏ mờ – tạo cảm giác pitch stripe. */
+  .bg-pitch-stripes {
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 40px,
+      oklch(from var(--primary) l c h / 0.04) 40px,
+      oklch(from var(--primary) l c h / 0.04) 80px
+    );
+  }
+
+  /* Ánh đèn sân vận động – radial gradient từ trên xuống. */
+  .bg-stadium-lights {
+    background-image:
+      radial-gradient(
+        ellipse 70% 50% at 50% -20%,
+        oklch(0.85 0.18 95 / 0.25) 0%,
+        transparent 70%
+      );
+  }
+
+  /* Glow xanh quanh element – dùng cho CTA, badge nổi bật. */
+  .glow-primary {
+    box-shadow:
+      0 0 0 1px oklch(from var(--primary) l c h / 0.4),
+      0 8px 24px -4px oklch(from var(--primary) l c h / 0.4),
+      0 0 40px -8px oklch(from var(--primary) l c h / 0.5);
+  }
+
+  .glow-primary-strong {
+    box-shadow:
+      0 0 0 2px oklch(from var(--primary) l c h / 0.6),
+      0 12px 36px -4px oklch(from var(--primary) l c h / 0.5),
+      0 0 60px -4px oklch(from var(--primary) l c h / 0.6);
+  }
+
+  .glow-warning {
+    box-shadow:
+      0 0 0 1px oklch(from var(--warning) l c h / 0.4),
+      0 8px 24px -4px oklch(from var(--warning) l c h / 0.4),
+      0 0 40px -8px oklch(from var(--warning) l c h / 0.5);
+  }
+
+  /* Bóng vàng đồng – trang trí cho phần thưởng / trophy. */
+  .bg-gold {
+    background-image: linear-gradient(
+      135deg,
+      oklch(0.85 0.15 85) 0%,
+      oklch(0.75 0.18 75) 50%,
+      oklch(0.65 0.17 65) 100%
+    );
+  }
+
+  .text-gold {
+    color: oklch(0.7 0.17 75);
+  }
+
+  /* Pot color tokens – mỗi pot có một màu riêng để phân biệt trực quan. */
+  .pot-1 {
+    background-color: oklch(0.78 0.17 75);  /* amber/gold - hạt giống số 1 */
+    color: oklch(0.25 0.05 75);
+  }
+  .pot-2 {
+    background-color: oklch(0.6 0.18 245); /* blue */
+    color: oklch(0.99 0.005 245);
+  }
+  .pot-3 {
+    background-color: oklch(0.58 0.2 290); /* violet */
+    color: oklch(0.99 0.005 290);
+  }
+  .pot-4 {
+    background-color: oklch(0.72 0.18 155); /* emerald */
+    color: oklch(0.16 0.025 165);
+  }
+
+  /* Shimmer animation – ánh sáng lướt qua như trên sân. */
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .animate-shimmer {
+    animation: shimmer 2.5s infinite;
+  }
+
+  /* Pulse glow – CTA bốc thăm "thở" nhẹ khi sẵn sàng. */
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow:
+        0 0 0 2px oklch(from var(--primary) l c h / 0.5),
+        0 8px 24px -4px oklch(from var(--primary) l c h / 0.4),
+        0 0 30px -8px oklch(from var(--primary) l c h / 0.5);
+    }
+    50% {
+      box-shadow:
+        0 0 0 4px oklch(from var(--primary) l c h / 0.7),
+        0 12px 36px -4px oklch(from var(--primary) l c h / 0.6),
+        0 0 60px -4px oklch(from var(--primary) l c h / 0.8);
+    }
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 2.2s ease-in-out infinite;
+  }
+
+  /* Rotate slow – cho ball/badge nền. */
+  @keyframes rotate-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .animate-rotate-slow {
+    animation: rotate-slow 16s linear infinite;
   }
 }

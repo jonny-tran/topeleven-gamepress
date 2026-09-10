@@ -5,8 +5,11 @@
     ".": {
       "default": "./src/index.ts"
     },
-    "./*": {
-      "default": "./src/*.ts"
+    "./schema": {
+      "default": "./src/schema/index.ts"
+    },
+    "./utils/*": {
+      "default": "./src/utils/*.ts"
     }
   },
   "scripts": {
@@ -14,13 +17,17 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:deploy": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "bun run src/seed/index.ts",
+    "db:reset": "drizzle-kit drop --force && drizzle-kit push"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@topEleven-gamepress/env": "workspace:*",
+    "argon2": "^0.41.1",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.2",
+    "nanoid": "^5.1.0",
     "zod": "catalog:"
   },
   "devDependencies": {

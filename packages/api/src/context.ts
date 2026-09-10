@@ -1,4 +1,5 @@
 import { auth } from "@topEleven-gamepress/auth";
+import { db } from "@topEleven-gamepress/db";
 import type { Context as ElysiaContext } from "elysia";
 
 export type CreateContextOptions = {
@@ -12,6 +13,7 @@ export async function createContext({ context }: CreateContextOptions) {
   return {
     auth: null,
     session,
+    db,
   };
 }
 

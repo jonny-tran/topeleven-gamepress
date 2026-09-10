@@ -29,6 +29,8 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url(),
     CORS_ORIGIN: z.url(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+    // Comma-separated list of admin emails. All admins have equal permissions.
+    ADMIN_EMAILS: z.string().default(""),
   },
   runtimeEnv: runtimeEnv,
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,

@@ -25,7 +25,7 @@ export default function UserMenu() {
   if (!session) {
     return (
       <Link href="/login">
-        <Button variant="outline">Sign In</Button>
+        <Button variant="outline">Đăng Nhập</Button>
       </Link>
     );
   }
@@ -37,9 +37,20 @@ export default function UserMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent className="bg-card">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuLabel>Tài Khoản Của Tôi</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
+          <DropdownMenuItem variant="destructive"
+            onClick={() => router.push("/dashboard")}
+          >
+            Bảng điều khiển
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => router.push("/admin/tournaments")}
+          >
+            Giải đấu
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
             onClick={() => {
@@ -52,7 +63,7 @@ export default function UserMenu() {
               });
             }}
           >
-            Sign Out
+            Đăng Xuất
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

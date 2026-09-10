@@ -6,8 +6,9 @@ import UserMenu from "./user-menu";
 
 export default function Header() {
   const links = [
-    { to: "/", label: "Home" },
-    { to: "/dashboard", label: "Dashboard" },
+    { to: "/", label: "Trang chủ" },
+    { to: "/admin/tournaments", label: "Giải đấu" },
+    { to: "/dashboard", label: "Bảng điều khiển" },
   ] as const;
 
   return (

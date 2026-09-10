@@ -1,5 +1,5 @@
 import { createDb } from "@topEleven-gamepress/db";
-import * as schema from "@topEleven-gamepress/db/schema/auth";
+import * as schema from "@topEleven-gamepress/db/schema";
 import { env } from "@topEleven-gamepress/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";

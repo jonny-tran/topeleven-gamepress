@@ -9,7 +9,9 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "build": "tsc -p . --emitDeclarationOnly --outDir dist --declaration"
+  },
   "dependencies": {
     "@topEleven-gamepress/auth": "workspace:*",
     "@topEleven-gamepress/db": "workspace:*",
@@ -17,6 +19,8 @@
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "dotenv": "catalog:",
+    "drizzle-orm": "^0.45.2",
+    "nanoid": "^5.1.0",
     "zod": "catalog:"
   },
   "devDependencies": {
