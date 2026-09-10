@@ -1,0 +1,16 @@
+node_modules
+.next
+.turbo
+dist
+.git
+.github
+.vercel
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+apps/web
+apps/web/**

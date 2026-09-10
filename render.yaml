@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: topeleven-server
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: singapore
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        value: https://topeleven-server.onrender.com
+      - key: CORS_ORIGIN
+        value: https://your-web.vercel.app
+      - key: DATABASE_URL
+        sync: false
