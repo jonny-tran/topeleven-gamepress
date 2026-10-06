@@ -1,8 +1,4 @@
 import { protectedProcedure, router, envelopedPublicProcedure } from "../index";
-export { adminProcedure } from "../index";
-import { user } from "@topEleven-gamepress/db/schema";
-import { eq } from "drizzle-orm";
-import { z } from "zod";
 import { tournamentRouter } from "./tournament";
 import { teamRouter } from "./team";
 import { drawRouter } from "./draw";
@@ -18,22 +14,9 @@ export const appRouter = router({
   privateData: protectedProcedure.query(({ ctx }) => {
     return {
       message: "This is private",
-      user: ctx.session.user,
+      user: ctx.actor,
     };
   }),
-
-  /**
-   * Check if an email exists in the database.
-   * Used for better error messages during sign-in.
-   */
-  checkEmail: envelopedPublicProcedure
-    .input(z.object({ email: z.string().email() }))
-    .query(async ({ ctx, input }) => {
-      const existingUser = await ctx.db.query.user.findFirst({
-        where: eq(user.email, input.email.toLowerCase()),
-      });
-      return { exists: !!existingUser };
-    }),
 
   // Tournament management
   tournament: tournamentRouter,

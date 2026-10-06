@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Copy,
+  Inbox,
   MoreVertical,
   Pencil,
   Plus,
@@ -27,6 +29,7 @@ import { trpc, getErrorMessage } from "@/utils/trpc";
 import { Button } from "@topEleven-gamepress/ui/components/button";
 import { Card, CardContent } from "@topEleven-gamepress/ui/components/card";
 import { Badge } from "@topEleven-gamepress/ui/components/badge";
+import { useViewer } from "@/hooks/use-viewer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -131,16 +134,65 @@ function getPrimaryAction(t: {
   }
 }
 
+/* ───────────────────────── Thứ tự ưu tiên ───────────────────────── */
+/** Sắp xếp giải đang hoạt động: việc cần làm gấp lên đầu, xong rồi mới tới
+ *  giải đã kết thúc. Cùng bậc thì giải khai tranh mới hơn đứng trước. */
+const STATUS_ORDER: Record<string, number> = {
+  draw_in_progress: 0,
+  setup: 1,
+  draw_completed: 2,
+  group_stage: 3,
+  knockout: 4,
+  completed: 5,
+};
+
+function byUrgency<T extends { status: string; startDate: Date | string }>(a: T, b: T) {
+  const rank = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+  if (rank !== 0) return rank;
+  return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+}
+
+function byMostRecentDeleted<T extends { deletedAt: Date | string | null }>(a: T, b: T) {
+  const t = (d: Date | string | null) => (d ? new Date(d).getTime() : 0);
+  return t(b.deletedAt) - t(a.deletedAt);
+}
+
+/** Danh sách chính chỉ hiện giải đang diễn ra. Giải đã xoá nằm sau một tab riêng
+ *  để không làm loãng màn hình. */
+type Filter = "active" | "deleted";
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "active", label: "Đang hoạt động" },
+  { id: "deleted", label: "Đã xoá" },
+];
+
+/**
+ * Phạm vi xem — chỉ admin mới chuyển được giữa "của tôi" và "tất cả".
+ * Tài khoản thường luôn bị server ép về `scope: "mine"`.
+ */
+const SCOPES: { id: "mine" | "all"; label: string }[] = [
+  { id: "all", label: "Tất cả giải" },
+  { id: "mine", label: "Của tôi" },
+];
+
 /* ───────────────────────── Page ───────────────────────── */
 
 export default function TournamentListPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [filter, setFilter] = useState<Filter>("active");
+
+  // Admin có thể xem toàn bộ giải của mọi tài khoản; tài khoản thường chỉ
+  // thấy giải của chính mình. `scope` được gửi lên server để lọc — server
+  // vẫn tự ép `ownerId` nếu tài khoản thường cố truyền scope = "all".
+  const { isAdmin } = useViewer();
+  const [scope, setScope] = useState<"mine" | "all">(isAdmin ? "all" : "mine");
 
   const { data: tournaments, isLoading } = useQuery(
     trpc.tournament.list.queryOptions({
       includeArchived: true,
       includeDeleted: true,
+      scope,
     })
   );
 
@@ -233,6 +285,16 @@ export default function TournamentListPage() {
   const archivedList = (tournaments ?? []).filter((t) => t.archivedAt && !t.deletedAt);
   const deletedList = (tournaments ?? []).filter((t) => t.deletedAt);
 
+  /* Tab "Đang hoạt động": giải đang chạy + giải lưu trữ, sắp theo độ ưu tiên. */
+  const liveList = [...activeList, ...archivedList].sort(byUrgency);
+  /* Tab "Đã xoá": mới xoá nhất lên đầu. */
+  const sortedDeleted = [...deletedList].sort(byMostRecentDeleted);
+
+  const totalCount = liveList.length + sortedDeleted.length;
+  const counts = { active: liveList.length, deleted: sortedDeleted.length };
+
+  const visible = filter === "deleted" ? sortedDeleted : liveList;
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
       {/* ─── Header ─── */}
@@ -270,7 +332,7 @@ export default function TournamentListPage() {
             </Card>
           ))}
         </div>
-      ) : activeList.length === 0 && archivedList.length === 0 && deletedList.length === 0 ? (
+      ) : totalCount === 0 ? (
         /* ── Empty state ── */
         <Card className="border-2 border-dashed bg-gradient-to-br from-primary/5 via-card to-primary/5">
           <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">
@@ -292,102 +354,116 @@ export default function TournamentListPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
-          {/* ── Active tournaments ── */}
-          <Section
-            title="Đang hoạt động"
-            count={activeList.length}
-            emptyHint="Chưa có giải đấu nào. Bấm Tạo Giải Mới ở trên."
-            isEmpty={activeList.length === 0}
-          >
-            {activeList.map((t) => (
-              <TournamentRow
-                key={t.id}
-                t={t}
-                onCopy={handleCopy}
-                onRename={handleRename}
-                onArchive={handleArchive}
-                onDelete={handleDelete}
-                getPrimaryAction={getPrimaryAction}
-              />
-            ))}
-          </Section>
-
-          {/* ── Archived ── */}
-          {archivedList.length > 0 && (
-            <Section
-              title="Đã lưu trữ"
-              count={archivedList.length}
-              isEmpty={false}
+        <div className="space-y-4">
+          {/* ── Filter ── */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div
+              role="tablist"
+              aria-label="Lọc giải đấu"
+              className="inline-flex items-center gap-1 rounded-lg border bg-muted/40 p-1"
             >
-              {archivedList.map((t) => (
+              {FILTERS.map((f) => {
+                const isOn = filter === f.id;
+                const n = counts[f.id];
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isOn}
+                    onClick={() => setFilter(f.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-colors",
+                      "focus-visible:ring-ring/40 focus-visible:ring-2 focus-visible:outline-none",
+                      isOn
+                        ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {f.label}
+                    <span
+                      className={cn(
+                        "font-mono text-[10px] tabular-nums",
+                        isOn ? "text-primary" : "text-muted-foreground/70",
+                      )}
+                    >
+                      {n}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {isAdmin && (
+              <div
+                role="tablist"
+                aria-label="Phạm vi xem giải đấu"
+                className="inline-flex items-center gap-1 rounded-lg border bg-muted/40 p-1"
+              >
+                {SCOPES.map((s) => {
+                  const isOn = scope === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isOn}
+                      onClick={() => setScope(s.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-colors",
+                        "focus-visible:ring-ring/40 focus-visible:ring-2 focus-visible:outline-none",
+                        isOn
+                          ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <p className="font-mono text-[11px] text-muted-foreground">
+              {visible.length === totalCount
+                ? `${totalCount} giải`
+                : `${visible.length}/${totalCount} giải`}
+            </p>
+          </div>
+
+          {/* ── Single unified list ── */}
+          {visible.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-muted/20 px-4 py-12 text-center">
+              <Inbox className="h-6 w-6 text-muted-foreground/60" />
+              <p className="text-sm font-medium">
+                {filter === "deleted" ? "Không có giải nào đã xoá" : "Chưa có giải đấu nào"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {filter === "deleted"
+                  ? "Các giải bạn xoá sẽ xuất hiện ở đây để khôi phục."
+                  : "Bấm Tạo Giải Mới ở trên để bắt đầu."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {visible.map((t) => (
                 <TournamentRow
                   key={t.id}
                   t={t}
                   onCopy={handleCopy}
-                  onRestore={handleRestore}
+                  onRename={handleRename}
+                  onArchive={handleArchive}
                   onDelete={handleDelete}
-                  getPrimaryAction={getPrimaryAction}
-                />
-              ))}
-            </Section>
-          )}
-
-          {/* ── Deleted ── */}
-          {deletedList.length > 0 && (
-            <Section
-              title="Đã xoá"
-              count={deletedList.length}
-              isEmpty={false}
-            >
-              {deletedList.map((t) => (
-                <TournamentRow
-                  key={t.id}
-                  t={t}
-                  onCopy={handleCopy}
+                  onRestore={handleRestore}
                   onRestoreDeleted={handleRestoreDeleted}
                   getPrimaryAction={getPrimaryAction}
                 />
               ))}
-            </Section>
+            </div>
           )}
         </div>
       )}
     </div>
-  );
-}
-
-/* ───────────────────────── Section wrapper ───────────────────────── */
-
-function Section({
-  title,
-  count,
-  children,
-  isEmpty,
-  emptyHint,
-}: {
-  title: string;
-  count: number;
-  children: React.ReactNode;
-  isEmpty?: boolean;
-  emptyHint?: string;
-}) {
-  return (
-    <section>
-      <div className="mb-3 flex items-baseline justify-between">
-        <h2 className="font-display text-lg font-extrabold tracking-tight">
-          {title}
-        </h2>
-        <span className="font-mono text-xs text-muted-foreground">{count}</span>
-      </div>
-      {isEmpty && emptyHint ? (
-        <p className="rounded-lg border border-dashed bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-          {emptyHint}
-        </p>
-      ) : (
-        <div className="grid gap-3">{children}</div>
-      )}
-    </section>
   );
 }
 
@@ -505,7 +581,7 @@ function TournamentRow({
               )}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-              {meta && (
+              {meta && !isDeleted && (
                 <Badge
                   variant="outline"
                   className={cn("font-mono text-[10px] uppercase", TONE_BADGE[meta.tone])}
@@ -523,7 +599,10 @@ function TournamentRow({
                 </Badge>
               )}
               {isDeleted && (
-                <Badge variant="outline" className="text-[10px]">
+                <Badge
+                  variant="outline"
+                  className="border-destructive/40 bg-destructive/15 font-mono text-[10px] text-destructive"
+                >
                   <X className="mr-1 h-3 w-3" />
                   Đã xoá
                 </Badge>
@@ -636,10 +715,16 @@ function TournamentRow({
                   )}
                 </>
               )}
-              {isArchived && (
+              {isArchived && !isDeleted && (
                 <DropdownMenuItem onClick={() => onCopy(t.id)}>
                   <Copy className="mr-2 h-4 w-4" />
                   Sao chép
+                </DropdownMenuItem>
+              )}
+              {isDeleted && (
+                <DropdownMenuItem onClick={() => onCopy(t.id)}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Sao chép thành giải mới
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

@@ -28,10 +28,16 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         },
         {
           onSuccess: () => {
-            router.push("/admin/tournaments");
-            toast.success("Đăng ký thành công");
+            // Người mới đăng ký sẽ có role = "user". Đi thẳng vào form tạo
+            // giải đấu đầu tiên — giải đó sẽ tự gán `ownerId = <bản thân>`
+            // nên đăng ký chính là cách để trở thành "chủ giải đấu" tạm thời.
+            // Sau này admin toàn cục có thể chuyển quyền sang tài khoản khác.
+            toast.success("Đăng ký thành công — bạn đã có thể tạo giải đấu!");
+            router.push("/admin/tournaments/new");
           },
           onError: (error) => {
+            // better-auth trả cùng mã lỗi chung cho mọi trường hợp đăng ký
+            // thất bại (email trùng, mật khẩu yếu, …). Thông báo chung.
             toast.error(error.error.message || error.error.statusText);
           },
         },

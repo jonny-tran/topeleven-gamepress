@@ -15,21 +15,28 @@ import {
   DropdownMenuTrigger,
 } from "@topEleven-gamepress/ui/components/dropdown-menu";
 import { useSidebar } from "@/components/sidebar-context";
+import { useViewer } from "@/hooks/use-viewer";
 
 /**
- * Top bar slim cho admin — thay thế sidebar cũ.
+ * Top bar slim cho khu vực quản lý — thay thế sidebar cũ.
  *
  * Cấu trúc: [logo] ............ [user]
  *
- * Khi trang con (Bốc Thăm) bật fullscreen, top bar cũng ẩn để admin tập
+ * Khi trang con (Bốc Thăm) bật fullscreen, top bar cũng ẩn để người dùng tập
  * trung vào sân khấu bốc thăm — tận dụng lại `hidden` state của sidebar
  * context cũ.
+ *
+ * Nhãn vai trò đọc từ `useViewer()`: admin toàn cục thì hiện "Quản trị viên",
+ * tài khoản thường thì hiện "Ban tổ chức" (vì họ quản lý giải của riêng mình).
  */
 export default function AdminTopbar({ userName }: { userName?: string }) {
   const router = useRouter();
   const { hidden } = useSidebar();
+  const { isAdmin } = useViewer();
 
   if (hidden) return null;
+
+  const roleLabel = isAdmin ? "Quản trị viên" : "Ban tổ chức";
 
   const handleSignOut = () => {
     authClient.signOut({
@@ -69,7 +76,7 @@ export default function AdminTopbar({ userName }: { userName?: string }) {
             topEleven
           </span>
           <span className="text-[10px] font-medium tracking-widest text-muted-foreground uppercase">
-            Admin
+            {isAdmin ? "Admin" : "Ban tổ chức"}
           </span>
         </div>
       </Link>
@@ -101,7 +108,7 @@ export default function AdminTopbar({ userName }: { userName?: string }) {
             <div className="px-2 py-1.5">
               <p className="truncate text-xs font-medium">{userName}</p>
               <p className="truncate text-[10px] text-muted-foreground">
-                Quản trị viên
+                {roleLabel}
               </p>
             </div>
             <DropdownMenuSeparator />

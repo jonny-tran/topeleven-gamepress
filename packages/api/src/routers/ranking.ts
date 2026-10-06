@@ -1,15 +1,28 @@
 import { z } from "zod";
 import { eq, and, asc, inArray } from "drizzle-orm";
-import { router, publicProcedure } from "../index";
+import { router, envelopedPublicProcedure } from "../index";
+import {
+  requireTournamentRead,
+  tournamentIdOfGroup,
+} from "../access";
 import { tournamentGroup, team, match, matchResult } from "@topEleven-gamepress/db/schema";
 import { calculateGroupStandingFromData } from "@topEleven-gamepress/db/utils/standings";
 import { getDynamicPairings, getAllR16Pairings, buildMatrixKey } from "@topEleven-gamepress/db/utils/round-of-16";
 
+/**
+ * Bảng xếp hạng — dữ liệu công khai, nhưng vẫn phải đi qua kiểm tra quyền xem
+ * giải. Trước đây các procedure này dùng `publicProcedure` trần (không bọc
+ * envelope, không kiểm tra gì), nên ai cũng dò được bảng xếp hạng của một giải
+ * bản nháp chỉ bằng cách biết trước `tournamentId` / `groupId`.
+ */
 export const rankingRouter = router({
-  /** Get group standings for a specific group */
-  getGroupStandings: publicProcedure
+  /** Bảng xếp hạng của một bảng đấu. */
+  getGroupStandings: envelopedPublicProcedure
     .input(z.object({ groupId: z.string() }))
     .query(async ({ ctx, input }) => {
+      const group = await tournamentIdOfGroup(ctx, input.groupId);
+      await requireTournamentRead(ctx, group.tournamentId);
+
       const groupTeams = await ctx.db.query.team.findMany({
         where: eq(team.groupId, input.groupId),
       });
@@ -29,10 +42,11 @@ export const rankingRouter = router({
       return calculateGroupStandingFromData(groupTeams, groupMatches, results);
     }),
 
-  /** Get all group standings for a tournament */
-  getAllStandings: publicProcedure
+  /** Bảng xếp hạng tất cả các bảng của một giải. */
+  getAllStandings: envelopedPublicProcedure
     .input(z.object({ tournamentId: z.string() }))
     .query(async ({ ctx, input }) => {
+      await requireTournamentRead(ctx, input.tournamentId);
       const groups = await ctx.db.query.tournamentGroup.findMany({
         where: eq(tournamentGroup.tournamentId, input.tournamentId),
         orderBy: [asc(tournamentGroup.code)],
@@ -61,10 +75,11 @@ export const rankingRouter = router({
       return result;
     }),
 
-  /** Get third-place ranking for a tournament */
-  getThirdPlaceRanking: publicProcedure
+  /** Xếp hạng những đội đứng thứ 3 mỗi bảng. */
+  getThirdPlaceRanking: envelopedPublicProcedure
     .input(z.object({ tournamentId: z.string() }))
     .query(async ({ ctx, input }) => {
+      await requireTournamentRead(ctx, input.tournamentId);
       const groups = await ctx.db.query.tournamentGroup.findMany({
         where: eq(tournamentGroup.tournamentId, input.tournamentId),
         orderBy: [asc(tournamentGroup.code)],
@@ -114,10 +129,11 @@ export const rankingRouter = router({
       });
     }),
 
-  /** Get qualified 3rd-place teams (top 4) */
-  getQualifiedThirdPlace: publicProcedure
+  /** Top 4 đội thứ 3 đủ điều kiện đá playoff. */
+  getQualifiedThirdPlace: envelopedPublicProcedure
     .input(z.object({ tournamentId: z.string() }))
     .query(async ({ ctx, input }) => {
+      await requireTournamentRead(ctx, input.tournamentId);
       const groups = await ctx.db.query.tournamentGroup.findMany({
         where: eq(tournamentGroup.tournamentId, input.tournamentId),
         orderBy: [asc(tournamentGroup.code)],
@@ -149,10 +165,11 @@ export const rankingRouter = router({
       }).slice(0, 4);
     }),
 
-  /** Get R16 pairings preview based on current standings */
-  getR16Pairings: publicProcedure
+  /** Xem trước cặp đấu 1/8 vòng knockout dựa trên bảng xếp hạng hiện tại. */
+  getR16Pairings: envelopedPublicProcedure
     .input(z.object({ tournamentId: z.string() }))
     .query(async ({ ctx, input }) => {
+      await requireTournamentRead(ctx, input.tournamentId);
       const groups = await ctx.db.query.tournamentGroup.findMany({
         where: eq(tournamentGroup.tournamentId, input.tournamentId),
         orderBy: [asc(tournamentGroup.code)],

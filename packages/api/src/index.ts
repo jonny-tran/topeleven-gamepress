@@ -1,60 +1,42 @@
-import { initTRPC, TRPCError } from "@trpc/server";
-import { env } from "@topEleven-gamepress/env/server";
+import { initTRPC } from "@trpc/server";
 import type { ApiResponse } from "./response";
 
 import type { Context } from "./context";
+import { requireActor, requireAdmin } from "./access";
 
 export const t = initTRPC.context<Context>().create();
 
 export const router = t.router;
 
+/**
+ * Procedure nền — không kiểm tra gì.
+ * Dùng khi caller đã tự gọi `requireActor` / `requireTournamentManage` trong
+ * resolver (phổ biến với các thao tác cần tra cứu giải cha trước).
+ */
 export const publicProcedure = t.procedure;
 
+/**
+ * Yêu cầu đăng nhập. Sau middleware này `ctx.actor` được thu hẹp thành
+ * `Actor` (không còn null) nên resolver dùng được mà không phải kiểm tra lại.
+ */
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
-  if (!ctx.session) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Bạn cần đăng nhập để thực hiện thao tác này.",
-      cause: "No session",
-    });
-  }
+  const actor = requireActor(ctx);
   return next({
-    ctx: {
-      ...ctx,
-      session: ctx.session,
-    },
+    ctx: { ...ctx, actor },
   });
 });
 
 /**
- * Admin procedure - requires authentication AND email in ADMIN_EMAILS list.
- * All admins have equal permissions (no role hierarchy).
+ * Yêu cầu đăng nhập + quyền admin toàn cục.
+ *
+ * Chỉ dùng cho thao tác toàn cục (quản lý mọi giải, vận hành hệ thống).
+ * Mọi thao tác trên một giải cụ thể nên dùng `envelopedManagerProcedure` +
+ * `requireTournamentManage` để chủ sở hữu cũng làm được.
  */
 export const adminProcedure = t.procedure.use(({ ctx, next }) => {
-  if (!ctx.session) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Bạn cần đăng nhập để thực hiện thao tác này.",
-      cause: "No session",
-    });
-  }
-  const userEmail = ctx.session.user?.email?.toLowerCase();
-  const adminEmails = env.ADMIN_EMAILS
-    ? env.ADMIN_EMAILS.split(",").map((e) => e.trim().toLowerCase())
-    : [];
-
-  if (adminEmails.length > 0 && !adminEmails.includes(userEmail ?? "")) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Bạn không có quyền truy cập chức năng quản trị.",
-      cause: "Email not in admin allowlist",
-    });
-  }
+  const actor = requireAdmin(ctx);
   return next({
-    ctx: {
-      ...ctx,
-      session: ctx.session,
-    },
+    ctx: { ...ctx, actor },
   });
 });
 
@@ -112,39 +94,34 @@ export const responseEnvelopeMiddleware = t.middleware(async ({ path, type, next
  * Chain order in tRPC is left-to-right inside `.use(...)`. The outermost
  * (last) middleware runs first on the request and last on the response.
  *
- * - `envelopedPublicProcedure`: envelope only
- * - `envelopedAdminProcedure`: envelope first, then admin auth gate
+ * - `envelopedPublicProcedure`: envelope only. Dành cho dữ liệu công khai.
+ *   Việc lọc quyền xem (public hay draft) do resolver quyết định qua
+ *   `requireTournamentRead` — không phụ thuộc cờ do client gửi lên.
+ * - `envelopedProtectedProcedure`: envelope + bắt buộc đăng nhập.
+ * - `envelopedManagerProcedure`: envelope + bắt buộc đăng nhập. Dùng cho
+ *   mọi thao tác quản lý giải; resolver gọi thêm `requireTournamentManage`
+ *   để kiểm tra chủ sở hữu.
+ * - `envelopedAdminProcedure`: envelope + bắt buộc là admin toàn cục.
  */
 export const envelopedPublicProcedure = t.procedure.use(responseEnvelopeMiddleware);
 
-export const envelopedAdminProcedure = t.procedure
-  // The right-most middleware runs first. We want auth to gate access BEFORE
-  // envelope wraps anything, so envelope goes on the left.
+export const envelopedProtectedProcedure = t.procedure
   .use(responseEnvelopeMiddleware)
   .use(({ ctx, next }) => {
-    if (!ctx.session) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Bạn cần đăng nhập để thực hiện thao tác này.",
-        cause: "No session",
-      });
-    }
-    const userEmail = ctx.session.user?.email?.toLowerCase();
-    const adminEmails = env.ADMIN_EMAILS
-      ? env.ADMIN_EMAILS.split(",").map((e) => e.trim().toLowerCase())
-      : [];
+    const actor = requireActor(ctx);
+    return next({ ctx: { ...ctx, actor } });
+  });
 
-    if (adminEmails.length > 0 && !adminEmails.includes(userEmail ?? "")) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Bạn không có quyền truy cập chức năng quản trị.",
-        cause: "Email not in admin allowlist",
-      });
-    }
-    return next({
-      ctx: {
-        ...ctx,
-        session: ctx.session,
-      },
-    });
+export const envelopedManagerProcedure = t.procedure
+  .use(responseEnvelopeMiddleware)
+  .use(({ ctx, next }) => {
+    const actor = requireActor(ctx);
+    return next({ ctx: { ...ctx, actor } });
+  });
+
+export const envelopedAdminProcedure = t.procedure
+  .use(responseEnvelopeMiddleware)
+  .use(({ ctx, next }) => {
+    const actor = requireAdmin(ctx);
+    return next({ ctx: { ...ctx, actor } });
   });

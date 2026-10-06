@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { eq, and, asc, inArray } from "drizzle-orm";
-import { router, envelopedAdminProcedure, envelopedPublicProcedure } from "../index";
+import { router, envelopedManagerProcedure, envelopedPublicProcedure } from "../index";
+import {
+  requireTournamentManage,
+  requireTournamentRead,
+  tournamentIdOfMatch,
+} from "../access";
 import { match, matchResult, team, tournament, tournamentGroup, type NewMatch } from "@topEleven-gamepress/db/schema";
 import { nanoid } from "nanoid";
 import { resolveKnockoutWinner, BRACKET_SLOTS, getLeg2Slot } from "@topEleven-gamepress/db/utils/knockout";
@@ -25,9 +30,10 @@ export interface BracketSlotInfo {
 
 export const knockoutRouter = router({
   /** Generate knockout bracket after group stage */
-  generateBracket: envelopedAdminProcedure
+  generateBracket: envelopedManagerProcedure
     .input(z.object({ tournamentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
       const t = await ctx.db.query.tournament.findFirst({
         where: eq(tournament.id, input.tournamentId),
       });
@@ -212,6 +218,7 @@ export const knockoutRouter = router({
   getBracket: envelopedPublicProcedure
     .input(z.object({ tournamentId: z.string() }))
     .query(async ({ ctx, input }) => {
+      await requireTournamentRead(ctx, input.tournamentId);
       const matches = await ctx.db.query.match.findMany({
         where: eq(match.tournamentId, input.tournamentId),
         with: { homeTeam: true, awayTeam: true, result: true },
@@ -244,7 +251,7 @@ export const knockoutRouter = router({
     }),
 
   /** Advance winner to next round after both legs are completed */
-  advanceWinner: envelopedAdminProcedure
+  advanceWinner: envelopedManagerProcedure
     .input(
       z.object({
         matchId: z.string(),
@@ -252,6 +259,19 @@ export const knockoutRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Tra cứu trận trước để biết nó thuộc giải nào, rồi mới xin quyền.
+      const access = await tournamentIdOfMatch(ctx, input.matchId);
+      await requireTournamentManage(ctx, access.tournamentId);
+
+      // Đội thắng do người dùng chỉ định phải thuộc trận này.
+      if (
+        input.winnerTeamId &&
+        access.homeTeamId !== input.winnerTeamId &&
+        access.awayTeamId !== input.winnerTeamId
+      ) {
+        throw new Error("Đội thắng phải là một trong hai đội đang thi đấu.");
+      }
+
       // Get the leg 2 match
       const leg2Match = await ctx.db.query.match.findFirst({
         where: eq(match.id, input.matchId),

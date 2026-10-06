@@ -1,18 +1,27 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
+import { router, envelopedPublicProcedure, envelopedManagerProcedure } from "../index";
 import {
-  router,
-  envelopedPublicProcedure,
-  envelopedAdminProcedure,
-} from "../index";
+  requireTournamentManage,
+  requireTournamentRead,
+  tournamentIdOfTeam,
+} from "../access";
 import { team } from "@topEleven-gamepress/db/schema";
 import { nanoid } from "nanoid";
 
 export const teamRouter = router({
-  /** List all teams for a tournament */
+  /**
+   * Danh sách đội của một giải.
+   *
+   * Trước đây procedure này công khai hoàn toàn và chỉ cần đúng
+   * `tournamentId` là lấy được toàn bộ danh sách — kể cả giải bản nháp.
+   * Nay nó đi qua `requireTournamentRead`: giải công khai thì xem được,
+   * bản nháp thì chỉ chủ giải và admin mới xem được.
+   */
   list: envelopedPublicProcedure
     .input(z.object({ tournamentId: z.string() }))
     .query(async ({ ctx, input }) => {
+      await requireTournamentRead(ctx, input.tournamentId);
       const teams = await ctx.db.query.team.findMany({
         where: eq(team.tournamentId, input.tournamentId),
         with: { group: true },
@@ -21,10 +30,13 @@ export const teamRouter = router({
       return teams;
     }),
 
-  /** Get a single team */
+  /** Lấy một đội bóng. Phải xem được giải chứa đội đó. */
   getById: envelopedPublicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
+      const row = await tournamentIdOfTeam(ctx, input.id);
+      await requireTournamentRead(ctx, row.tournamentId);
+
       const t = await ctx.db.query.team.findFirst({
         where: eq(team.id, input.id),
         with: { group: true, tournament: true },
@@ -33,8 +45,8 @@ export const teamRouter = router({
       return t;
     }),
 
-  /** Create a single team */
-  create: envelopedAdminProcedure
+  /** Tạo một đội. Chỉ chủ giải hoặc admin. */
+  create: envelopedManagerProcedure
     .input(
       z.object({
         tournamentId: z.string(),
@@ -46,6 +58,7 @@ export const teamRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
       const id = nanoid();
       await ctx.db.insert(team).values({
         id,
@@ -69,7 +82,7 @@ export const teamRouter = router({
    *   (UI sẽ hiển thị toast info "không có thay đổi").
    * - Nếu khác → xóa hết teams cũ của tournament, insert danh sách mới.
    */
-  createBulk: envelopedAdminProcedure
+  createBulk: envelopedManagerProcedure
     .input(
       z.object({
         tournamentId: z.string(),
@@ -88,6 +101,8 @@ export const teamRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
+
       // Step 1: Sanitize input
       const cleaned = input.teams.map((t) => ({
         name: t.name.trim(),
@@ -163,8 +178,8 @@ export const teamRouter = router({
       return { count: values.length };
     }),
 
-  /** Update a team */
-  update: envelopedAdminProcedure
+  /** Sửa thông tin một đội. Chỉ chủ giải hoặc admin. */
+  update: envelopedManagerProcedure
     .input(
       z.object({
         id: z.string(),
@@ -176,6 +191,9 @@ export const teamRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const row = await tournamentIdOfTeam(ctx, input.id);
+      await requireTournamentManage(ctx, row.tournamentId);
+
       const { id, ...rest } = input;
       await ctx.db
         .update(team)
@@ -184,18 +202,22 @@ export const teamRouter = router({
       return { success: true };
     }),
 
-  /** Delete a team */
-  delete: envelopedAdminProcedure
+  /** Xoá một đội. Chỉ chủ giải hoặc admin. */
+  delete: envelopedManagerProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const row = await tournamentIdOfTeam(ctx, input.id);
+      await requireTournamentManage(ctx, row.tournamentId);
+
       await ctx.db.delete(team).where(eq(team.id, input.id));
       return { success: true };
     }),
 
-  /** Delete all teams for a tournament (reset) */
-  deleteAll: envelopedAdminProcedure
+  /** Xoá toàn bộ đội của một giải (reset). */
+  deleteAll: envelopedManagerProcedure
     .input(z.object({ tournamentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
       await ctx.db.delete(team).where(eq(team.tournamentId, input.tournamentId));
       return { success: true };
     }),

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { router, envelopedAdminProcedure, envelopedPublicProcedure } from "../index";
+import { router, envelopedManagerProcedure, envelopedPublicProcedure } from "../index";
+import {
+  requireTournamentManage,
+  requireTournamentRead,
+} from "../access";
 import { tournament, tournamentGroup, team, match, type NewMatch } from "@topEleven-gamepress/db/schema";
 import {
   initDrawState,
@@ -41,6 +45,10 @@ export interface DrawStateDTO {
   canProceed: boolean;
   totalSteps: number;
   completedSteps: number;
+  /** Tournament status (setup | draw_in_progress | draw_completed | ...). Present in getState response only. */
+  tournamentStatus?: string;
+  /** Whether the tournament is publicly visible. Present in getState response only. */
+  isPublic?: boolean;
 }
 
 function toDTO(state: DrawState): DrawStateDTO {
@@ -137,10 +145,17 @@ function toDTO(state: DrawState): DrawStateDTO {
 }
 
 export const drawRouter = router({
-  /** Get current draw state for a tournament */
+  /**
+   * Trạng thái bốc thăm hiện tại.
+   *
+   * Trả về cả danh sách 24 đội và bảng đã xếp, nên cần quyền xem giải:
+   * giải công khai thì mọi khách xem được, bản nháp thì chỉ chủ giải và admin.
+   */
   getState: envelopedPublicProcedure
     .input(z.object({ tournamentId: z.string() }))
     .query(async ({ ctx, input }) => {
+      await requireTournamentRead(ctx, input.tournamentId);
+
       // Get tournament
       const t = await ctx.db.query.tournament.findFirst({
         where: eq(tournament.id, input.tournamentId),
@@ -159,7 +174,7 @@ export const drawRouter = router({
       if (assignedTeams.length === 0) {
         // Not started
         const state = initDrawState(unassignedTeams.length > 0 ? unassignedTeams : allTeams);
-        return { ...toDTO(state), started: false };
+        return { ...toDTO(state), started: false, tournamentStatus: t.status, isPublic: t.isPublic };
       }
 
       if (assignedTeams.length === 24) {
@@ -179,6 +194,8 @@ export const drawRouter = router({
         return {
           ...toDTO({ ...state, isComplete: true, assignedTeams }),
           started: true,
+          tournamentStatus: t.status,
+          isPublic: t.isPublic,
         };
       }
 
@@ -212,13 +229,14 @@ export const drawRouter = router({
       state.currentGroupIndex = currentGroupIndex;
       state.currentPot = currentPot;
 
-      return { ...toDTO(state), started: true };
+      return { ...toDTO(state), started: true, tournamentStatus: t.status, isPublic: t.isPublic };
     }),
 
   /** Shuffle the current pot and return the shuffled order */
-  shufflePot: envelopedAdminProcedure
+  shufflePot: envelopedManagerProcedure
     .input(z.object({ tournamentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
       const allTeams = await ctx.db.query.team.findMany({
         where: eq(team.tournamentId, input.tournamentId),
       });
@@ -272,9 +290,10 @@ export const drawRouter = router({
     }),
 
   /** Auto-pick (random) a team from current pot, skipping conflicts */
-  autoPick: envelopedAdminProcedure
+  autoPick: envelopedManagerProcedure
     .input(z.object({ tournamentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
       const allTeams = await ctx.db.query.team.findMany({
         where: eq(team.tournamentId, input.tournamentId),
       });
@@ -370,9 +389,11 @@ export const drawRouter = router({
     }),
 
   /** Confirm the draw and generate group stage matches */
-  confirmDraw: envelopedAdminProcedure
+  confirmDraw: envelopedManagerProcedure
     .input(z.object({ tournamentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
+
       // Verify all 24 teams are assigned
       const allTeams = await ctx.db.query.team.findMany({
         where: eq(team.tournamentId, input.tournamentId),
@@ -423,9 +444,29 @@ export const drawRouter = router({
     }),
 
   /** Reset draw (clear all group assignments) */
-  resetDraw: envelopedAdminProcedure
+  resetDraw: envelopedManagerProcedure
     .input(z.object({ tournamentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
+      const t = await ctx.db.query.tournament.findFirst({
+        where: eq(tournament.id, input.tournamentId),
+      });
+      if (!t) throw new Error("Tournament not found");
+
+      // Guard: refuse if tournament is already public
+      if (t.isPublic) {
+        throw new Error(
+          "Không thể đặt lại bốc thăm: giải đấu đã được công khai. Hãy bỏ công khai trước.",
+        );
+      }
+
+      // Guard: refuse if tournament has progressed beyond draw (confirmed + schedule created)
+      if (["group_stage", "knockout", "completed"].includes(t.status)) {
+        throw new Error(
+          "Không thể đặt lại bốc thăm: giải đấu đã tiến vào giai đoạn thi đấu. Hãy đóng giải trước.",
+        );
+      }
+
       // Clear group assignments
       await ctx.db
         .update(team)
@@ -463,9 +504,11 @@ export const drawRouter = router({
    * Refused once the draw is confirmed (`status = "draw_completed"`); admin
    * must use `resetDraw` to start over after confirmation.
    */
-  undoLastDraw: envelopedAdminProcedure
+  undoLastDraw: envelopedManagerProcedure
     .input(z.object({ tournamentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
+
       // 1. Tournament must exist and not be confirmed yet
       const t = await ctx.db.query.tournament.findFirst({
         where: eq(tournament.id, input.tournamentId),
@@ -541,9 +584,10 @@ export const drawRouter = router({
    *  - 20 teams already assigned (groups A–E complete)
    *  - 4 teams still unassigned
    */
-  fillLastGroup: envelopedAdminProcedure
+  fillLastGroup: envelopedManagerProcedure
     .input(z.object({ tournamentId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await requireTournamentManage(ctx, input.tournamentId);
       const allTeams = await ctx.db.query.team.findMany({
         where: eq(team.tournamentId, input.tournamentId),
       });

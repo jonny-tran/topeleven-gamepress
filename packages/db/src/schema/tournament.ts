@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { user } from "./auth";
 
 // ============================================================
 // TABLES
@@ -10,6 +11,18 @@ export const tournament = pgTable("tournament", {
   name: text("name").notNull(),
   startDate: timestamp("start_date", { withTimezone: true }).notNull(),
   status: text("status").notNull().default("setup"),
+  /**
+   * Tài khoản sở hữu giải đấu — nền tảng của toàn bộ phân quyền.
+   *
+   * Ai có `ownerId` trùng với user đang đăng nhập thì được toàn quyền với
+   * giải này. Admin (`user.role = "admin"`) cũng được toàn quyền bất kể
+   * `ownerId`. Mọi người còn lại chỉ được xem nếu `isPublic = true`.
+   *
+   * Cột cho phép NULL để các giải tạo trước khi có tính năng này vẫn tồn
+   * tại; migration backfill sẽ gán owner cho chúng. Xoá tài khoản KHÔNG
+   * xoá giải — ownerId chuyển về NULL và admin vẫn quản lý được.
+   */
+  ownerId: text("owner_id").references(() => user.id, { onDelete: "set null" }),
   /**
    * Soft-publish flag. When false, the tournament is treated as a draft and
    * hidden from public listings (`/tournaments`). Admin pages can still see
@@ -41,6 +54,7 @@ export const tournament = pgTable("tournament", {
   index("tournament_archived_idx").on(table.archivedAt),
   index("tournament_deleted_idx").on(table.deletedAt),
   index("tournament_public_idx").on(table.isPublic),
+  index("tournament_owner_idx").on(table.ownerId),
 ]);
 
 // 6 groups per tournament (A, B, C, D, E, F)
@@ -110,7 +124,11 @@ export const matchResult = pgTable("match_result", {
 // RELATIONS
 // ============================================================
 
-export const tournamentRelations = relations(tournament, ({ many }) => ({
+export const tournamentRelations = relations(tournament, ({ one, many }) => ({
+  owner: one(user, {
+    fields: [tournament.ownerId],
+    references: [user.id],
+  }),
   groups: many(tournamentGroup),
   teams: many(team),
   matches: many(match),

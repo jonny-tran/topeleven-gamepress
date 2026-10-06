@@ -12,12 +12,10 @@ import { Lock, LogIn, User } from "lucide-react";
 import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
-import { trpcClient } from "@/utils/trpc";
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [checkedEmail, setCheckedEmail] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
@@ -27,23 +25,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
     onSubmit: async ({ value }) => {
       setIsLoading(true);
 
-      // Check if email exists first (only if not already checked for this email)
-      if (checkedEmail !== value.email) {
-        try {
-          const result = await trpcClient.checkEmail.query({ email: value.email });
-          if (!result.exists) {
-            toast.error("Email không tồn tại. Vui lòng kiểm tra lại hoặc đăng ký tài khoản mới.");
-            setIsLoading(false);
-            return;
-          }
-          setCheckedEmail(value.email);
-        } catch {
-          // If check fails, still try sign-in
-          setCheckedEmail(value.email);
-        }
-      }
-
-      // Now attempt sign-in
+      // Không kiểm tra email tồn tại trước: endpoint đó đã bị gỡ vì cho phép
+      // dò ra tài khoản nào đã đăng ký. better-auth trả cùng một mã lỗi cho
+      // cả "sai email" lẫn "sai mật khẩu", nên thông báo bên dưới là chung.
       await authClient.signIn.email(
         {
           email: value.email,
@@ -55,12 +39,11 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
             router.push("/admin/tournaments");
           },
           onError: (error) => {
-            // Since we verified email exists, this must be the password
             if (
               error.error.statusText === "Unauthorized" ||
               error.error.code === "INVALID_EMAIL_OR_PASSWORD"
             ) {
-              toast.error("Mật khẩu không chính xác. Vui lòng thử lại.");
+              toast.error("Email hoặc mật khẩu không chính xác.");
             } else {
               toast.error(error.error.message || error.error.statusText);
             }
@@ -111,7 +94,6 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => {
-                        setCheckedEmail(null);
                         field.handleChange(e.target.value);
                       }}
                       className="h-10"

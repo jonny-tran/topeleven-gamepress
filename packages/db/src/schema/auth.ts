@@ -1,18 +1,36 @@
 import { relations } from "drizzle-orm";
 import { pgTable, text, timestamp, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
+/**
+ * Vai trò của tài khoản.
+ *
+ * - `user`  — tài khoản thường. Chỉ quản lý được những giải mà mình là chủ
+ *             (`tournament.ownerId`). Không nhìn thấy bản nháp của người khác.
+ * - `admin` — quản trị toàn cục. Xem và quản lý được mọi giải của mọi tài khoản.
+ *
+ * Cột này là nguồn sự thật duy nhất cho quyền. Biến môi trường `ADMIN_EMAILS`
+ * chỉ đóng vai trò "chốt cửa dự phòng" (xem `resolveRole` trong
+ * `packages/api/src/access.ts`) để không bị kẹt cứng khi mất DB.
+ */
+export const USER_ROLES = ["user", "admin"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  /** Xem {@link UserRole}. Mặc định `user` — tài khoản mới không có quyền gì. */
+  role: text("role").$type<UserRole>().notNull().default("user"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
-});
+}, (table) => [
+  index("user_role_idx").on(table.role),
+]);
 
 export const session = pgTable(
   "session",

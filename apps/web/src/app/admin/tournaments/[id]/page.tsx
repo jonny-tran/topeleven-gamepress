@@ -68,11 +68,7 @@ export default function TournamentDetailPage({ params }: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const { data: tournament, isLoading } = useQuery(
-    trpc.tournament.getById.queryOptions({
-      id,
-      includeDeleted: true,
-      includeNotPublic: true,
-    })
+    trpc.tournament.getById.queryOptions({ id })
   );
   const { data: teams } = useQuery(trpc.team.list.queryOptions({ tournamentId: id }));
 
@@ -170,9 +166,17 @@ export default function TournamentDetailPage({ params }: Props) {
   const totalTeams = teams?.length ?? 0;
   const teamsComplete = totalTeams >= 24;
 
+  /**
+   * Server đã quyết định quyền cho trang này (xem `access.ts`): `true` khi
+   * người đang xem là chủ sở hữu hoặc admin. Người xem chỉ có quyền đọc sẽ
+   * không thấy các thao tác quản lý bên dưới — và nếu gọi API bằng tay thì
+   * server vẫn từ chối, vì `canManage` ở đây chỉ dùng để ẩn/hiện nút.
+   */
+  const canManage = tournament.canManage;
+
   // ── Primary action theo status ──
   let primaryAction: { label: string; href: string; icon: typeof Shuffle; description: string; emphasis: boolean } | null = null;
-  if (!tournament.deletedAt && !tournament.archivedAt) {
+  if (canManage && !tournament.deletedAt && !tournament.archivedAt) {
     if (tournament.status === "setup") {
       primaryAction = {
         label: teamsComplete ? "Bắt đầu bốc thăm" : `Nhập ${24 - totalTeams} đội nữa`,
@@ -226,6 +230,17 @@ export default function TournamentDetailPage({ params }: Props) {
     year: "numeric",
   });
 
+  // Tạm ẩn các mục chưa dùng. Xoá key khỏi mảng để hiển thị lại.
+  const HIDDEN_ADVANCED_TILES = ["schedule", "matches", "knockout"];
+
+  const advancedTiles = [
+    { key: "teams",     href: `/admin/tournaments/${id}/teams`,     icon: Users,         label: "Đội bóng" },
+    { key: "schedule",  href: `/admin/tournaments/${id}/schedule`,  icon: Calendar,      label: "Lịch thi đấu" },
+    { key: "matches",   href: `/admin/tournaments/${id}/matches`,   icon: ClipboardList, label: "Kết quả" },
+    { key: "standings", href: `/admin/tournaments/${id}/standings`, icon: Group,         label: "Bảng xếp hạng" },
+    { key: "knockout",  href: `/admin/tournaments/${id}/knockout`,  icon: Trophy,        label: "Loại trực tiếp" },
+  ].filter((tile) => !HIDDEN_ADVANCED_TILES.includes(tile.key));
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
       {/* ─── Back link ─── */}
@@ -248,6 +263,14 @@ export default function TournamentDetailPage({ params }: Props) {
         <Banner tone="warning">
           Giải đấu đang được lưu trữ. Dùng nút <strong>Khôi phục</strong> ở cuối
           trang để đưa về danh sách hoạt động.
+        </Banner>
+      )}
+
+      {/* ─── Không phải chủ giải: chỉ xem, không thao tác được ─── */}
+      {!canManage && (
+        <Banner tone="info">
+          Bạn đang xem giải đấu công khai của ban tổ chức khác — chỉ có quyền
+          xem. Muốn quản lý, hãy đăng nhập bằng tài khoản chủ sở hữu.
         </Banner>
       )}
 
@@ -301,7 +324,7 @@ export default function TournamentDetailPage({ params }: Props) {
               <h1 className="font-display text-3xl font-extrabold tracking-tight">
                 {tournament.name}
               </h1>
-              {!tournament.deletedAt && (
+              {!tournament.deletedAt && canManage && (
                 <button
                   onClick={() => {
                     setNameInput(tournament.name);
@@ -335,7 +358,7 @@ export default function TournamentDetailPage({ params }: Props) {
         </div>
 
         {/* Kebab menu */}
-        {!tournament.deletedAt && (
+        {!tournament.deletedAt && canManage && (
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -463,18 +486,21 @@ export default function TournamentDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* ─── Quick stats ─── */}
-      <div className="mb-6 grid grid-cols-3 gap-3">
-        <StatTile label="Đội đã nhập" value={`${totalTeams}/24`} tone={teamsComplete ? "success" : "warning"} />
-        <StatTile label="Đã bốc" value={`${assignedTeams}/24`} tone="primary" />
-        <StatTile
-          label="Công khai"
-          value={tournament.isPublic ? "Có" : "Không"}
-          tone={tournament.isPublic ? "success" : "muted"}
-        />
-      </div>
+      {/* ─── Quick stats (chỉ chủ giải / admin — tránh lộ trạng thái nội bộ) ─── */}
+      {canManage && (
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          <StatTile label="Đội đã nhập" value={`${totalTeams}/24`} tone={teamsComplete ? "success" : "warning"} />
+          <StatTile label="Đã bốc" value={`${assignedTeams}/24`} tone="primary" />
+          <StatTile
+            label="Công khai"
+            value={tournament.isPublic ? "Có" : "Không"}
+            tone={tournament.isPublic ? "success" : "muted"}
+          />
+        </div>
+      )}
 
       {/* ─── Advanced (collapsed) ─── */}
+      {canManage && (
       <div className="rounded-2xl border bg-card">
         <button
           onClick={() => setShowAdvanced((s) => !s)}
@@ -493,28 +519,19 @@ export default function TournamentDetailPage({ params }: Props) {
               Các trang quản lý chi tiết — chỉ cần khi muốn điều chỉnh thủ công.
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <Link href={`/admin/tournaments/${id}/teams`}>
-                <AdvancedTile icon={Users} label="Đội bóng" />
-              </Link>
-              <Link href={`/admin/tournaments/${id}/schedule`}>
-                <AdvancedTile icon={Calendar} label="Lịch thi đấu" />
-              </Link>
-              <Link href={`/admin/tournaments/${id}/matches`}>
-                <AdvancedTile icon={ClipboardList} label="Kết quả" />
-              </Link>
-              <Link href={`/admin/tournaments/${id}/standings`}>
-                <AdvancedTile icon={Group} label="Bảng xếp hạng" />
-              </Link>
-              <Link href={`/admin/tournaments/${id}/knockout`}>
-                <AdvancedTile icon={Trophy} label="Loại trực tiếp" />
-              </Link>
+              {advancedTiles.map((tile) => (
+                <Link key={tile.key} href={tile.href as never}>
+                  <AdvancedTile icon={tile.icon} label={tile.label} />
+                </Link>
+              ))}
             </div>
           </div>
         )}
       </div>
+      )}
 
       {/* ─── Restore button cho deleted ─── */}
-      {tournament.deletedAt && (
+      {tournament.deletedAt && canManage && (
         <div className="mt-6">
           <Button
             size="lg"
@@ -568,7 +585,7 @@ function StatTile({
       : tone === "warning"
       ? "border-warning/40 bg-warning/5 text-warning-foreground"
       : tone === "success"
-      ? "border-success/40 bg-success/5 text-success-foreground"
+      ? "border-emerald-500/40 bg-emerald-50 text-emerald-700"
       : "border-border bg-muted/30 text-muted-foreground";
   return (
     <div className={cn("rounded-xl border p-3 text-center", cls)}>

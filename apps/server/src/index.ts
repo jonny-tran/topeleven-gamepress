@@ -22,7 +22,7 @@ const app = new Elysia()
       ],
       // Expose Set-Cookie so the browser accepts the session cookie and
       // reads back-dated cookies on subsequent requests.
-      exposedHeaders: ["Set-Cookie", "Content-Length"],
+      exposeHeaders: ["Set-Cookie", "Content-Length"],
       credentials: true,
       maxAge: 86400,
     }),

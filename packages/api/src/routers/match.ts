@@ -1,18 +1,23 @@
 import { z } from "zod";
 import { eq, and, asc } from "drizzle-orm";
+import { router, envelopedPublicProcedure, envelopedManagerProcedure } from "../index";
 import {
-  router,
-  envelopedPublicProcedure,
-  envelopedAdminProcedure,
-} from "../index";
+  requireTournamentManage,
+  requireTournamentRead,
+  tournamentIdOfGroup,
+  tournamentIdOfMatch,
+} from "../access";
 import { match, matchResult } from "@topEleven-gamepress/db/schema";
 import { nanoid } from "nanoid";
 
 export const matchRouter = router({
-  /** List matches by group */
+  /** Trận đấu của một bảng. Phải xem được giải chứa bảng đó. */
   listByGroup: envelopedPublicProcedure
     .input(z.object({ groupId: z.string() }))
     .query(async ({ ctx, input }) => {
+      const group = await tournamentIdOfGroup(ctx, input.groupId);
+      await requireTournamentRead(ctx, group.tournamentId);
+
       const matches = await ctx.db.query.match.findMany({
         where: eq(match.groupId, input.groupId),
         with: {
@@ -25,25 +30,25 @@ export const matchRouter = router({
       return matches;
     }),
 
-  /** List all matches for a tournament */
+  /**
+   * Tất cả trận đấu của một giải.
+   *
+   * `tournamentId` giờ là BẮT BUỘC. Trước đây input là optional và khi bỏ
+   * trống, procedure trả về toàn bộ bảng `match` của cả hệ thống — bao gồm
+   * cả trận của các giải bản nháp mà người gọi không có quyền xem.
+   */
   listByTournament: envelopedPublicProcedure
     .input(
-      z
-        .object({
-          tournamentId: z.string(),
-          stage: z.enum(["group", "round_of_16", "quarter", "semi", "third_place", "final"]).optional(),
-          groupId: z.string().optional(),
-          status: z.enum(["pending", "in_progress", "completed"]).optional(),
-        })
-        .optional()
+      z.object({
+        tournamentId: z.string(),
+        stage: z.enum(["group", "round_of_16", "quarter", "semi", "third_place", "final"]).optional(),
+        groupId: z.string().optional(),
+        status: z.enum(["pending", "in_progress", "completed"]).optional(),
+      })
     )
     .query(async ({ ctx, input }) => {
-      if (!input) {
-        return ctx.db.query.match.findMany({
-          with: { homeTeam: true, awayTeam: true, result: true, group: true },
-          orderBy: [asc(match.matchDate), asc(match.leg)],
-        });
-      }
+      await requireTournamentRead(ctx, input.tournamentId);
+
       const conditions = [eq(match.tournamentId, input.tournamentId)];
       if (input.stage) conditions.push(eq(match.stage, input.stage));
       if (input.groupId) conditions.push(eq(match.groupId, input.groupId));
@@ -56,10 +61,13 @@ export const matchRouter = router({
       });
     }),
 
-  /** Get a single match with full details */
+  /** Chi tiết một trận đấu. Phải xem được giải chứa nó. */
   getById: envelopedPublicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
+      const row = await tournamentIdOfMatch(ctx, input.id);
+      await requireTournamentRead(ctx, row.tournamentId);
+
       const m = await ctx.db.query.match.findFirst({
         where: eq(match.id, input.id),
         with: {
@@ -74,8 +82,8 @@ export const matchRouter = router({
       return m;
     }),
 
-  /** Update match status */
-  updateStatus: envelopedAdminProcedure
+  /** Đổi trạng thái trận (chưa / đang / xong). Chỉ chủ giải hoặc admin. */
+  updateStatus: envelopedManagerProcedure
     .input(
       z.object({
         matchId: z.string(),
@@ -83,6 +91,9 @@ export const matchRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const row = await tournamentIdOfMatch(ctx, input.matchId);
+      await requireTournamentManage(ctx, row.tournamentId);
+
       await ctx.db
         .update(match)
         .set({ status: input.status })
@@ -90,8 +101,8 @@ export const matchRouter = router({
       return { success: true };
     }),
 
-  /** Update match result and cards */
-  updateResult: envelopedAdminProcedure
+  /** Ghi tỉ số + thẻ phạt. Chỉ chủ giải hoặc admin. */
+  updateResult: envelopedManagerProcedure
     .input(
       z.object({
         matchId: z.string(),
@@ -106,6 +117,9 @@ export const matchRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const row = await tournamentIdOfMatch(ctx, input.matchId);
+      await requireTournamentManage(ctx, row.tournamentId);
+
       const { matchId, ...resultData } = input;
 
       // Upsert match result
@@ -135,8 +149,8 @@ export const matchRouter = router({
       return { success: true };
     }),
 
-  /** Update match date and time */
-  updateDate: envelopedAdminProcedure
+  /** Dời lịch một trận đấu. Chỉ chủ giải hoặc admin. */
+  updateDate: envelopedManagerProcedure
     .input(
       z.object({
         matchId: z.string(),
@@ -145,6 +159,9 @@ export const matchRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const row = await tournamentIdOfMatch(ctx, input.matchId);
+      await requireTournamentManage(ctx, row.tournamentId);
+
       await ctx.db
         .update(match)
         .set({
@@ -155,8 +172,14 @@ export const matchRouter = router({
       return { success: true };
     }),
 
-  /** Manual resolve (admin picks winner for pendingDraw matches) */
-  manualResolve: envelopedAdminProcedure
+  /**
+   * Chốt thủ công đội thắng khi hai lượt hoà (pendingDraw).
+   *
+   * Ngoài việc kiểm tra quyền, còn kiểm tra `winnerTeamId` thật sự là một
+   * đội trong trận — nếu không, chủ giải có thể "đặt" đội bất kỳ từ giải
+   * khác vào làm đội thắng và làm hỏng cả nhánh knockout.
+   */
+  manualResolve: envelopedManagerProcedure
     .input(
       z.object({
         matchId: z.string(),
@@ -164,6 +187,13 @@ export const matchRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const row = await tournamentIdOfMatch(ctx, input.matchId);
+      await requireTournamentManage(ctx, row.tournamentId);
+
+      if (row.homeTeamId !== input.winnerTeamId && row.awayTeamId !== input.winnerTeamId) {
+        throw new Error("Đội thắng phải là một trong hai đội đang thi đấu.");
+      }
+
       await ctx.db
         .update(match)
         .set({ winnerTeamId: input.winnerTeamId })

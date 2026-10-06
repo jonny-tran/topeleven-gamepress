@@ -349,6 +349,14 @@ export default function DrawPage({ params }: Props) {
   const totalSteps = state.totalSteps;
   const progressPct = (completedSteps / totalSteps) * 100;
 
+  // Tournament-level fields needed for reset guard
+  const tournamentStatus = state.tournamentStatus ?? "setup";
+  const isTournamentPublic = state.isPublic ?? false;
+  // Cho phép reset khi bốc thăm đã hoàn tất (24 đội đã phân bảng) nhưng giải chưa
+  // được xác nhận (chưa tạo lịch) và chưa công khai.
+  const canResetAfterComplete =
+    state.isComplete && !isTournamentPublic && tournamentStatus !== "draw_completed";
+
   // ── Bảng UI đang hiển thị trên panel RIGHT ──
   // Kết hợp dữ liệu từ server (`state.groups`) với override client-side
   // (`drawnDisplayMap`) để các đội vừa bốc hiển thị đầy đủ kể cả khi server
@@ -468,12 +476,26 @@ export default function DrawPage({ params }: Props) {
               variant="ghost"
               size="sm"
               onClick={() => {
-                if (confirm("Đặt lại bốc thăm?\n\nTất cả phân bảng sẽ bị xóa.")) {
+                if (
+                  confirm(
+                    "Đặt lại bốc thăm?\n\nTất cả phân bảng sẽ bị xóa. Bạn có thể bốc thăm lại từ đầu.",
+                  )
+                ) {
                   resetDraw.mutate({ tournamentId });
                 }
               }}
-              disabled={resetDraw.isPending || isComplete}
-              className="text-muted-foreground"
+              disabled={resetDraw.isPending || (!canResetAfterComplete && !isComplete && completedSteps === 0)}
+              className={cn(
+                "text-muted-foreground",
+                canResetAfterComplete && "text-destructive hover:text-destructive"
+              )}
+              title={
+                canResetAfterComplete
+                  ? "Đặt lại bốc thăm để bốc lại từ đầu"
+                  : isTournamentPublic
+                  ? "Không thể đặt lại: giải đấu đã công khai"
+                  : undefined
+              }
             >
               <RefreshCw className="mr-1.5 h-4 w-4" />
               Đặt lại
@@ -815,6 +837,26 @@ export default function DrawPage({ params }: Props) {
                 <CheckCircle2 className="mr-2 h-5 w-5" />
                 {confirmDraw.isPending ? "Đang tạo lịch…" : "Xác Nhận & Tạo Lịch Thi Đấu"}
               </Button>
+              {canResetAfterComplete && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="mt-4 ml-3 text-base font-bold border-destructive/50 text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    if (
+                      confirm(
+                        "Đặt lại bốc thăm?\n\nTất cả phân bảng sẽ bị xóa. Bạn có thể bốc thăm lại từ đầu.",
+                      )
+                    ) {
+                      resetDraw.mutate({ tournamentId });
+                    }
+                  }}
+                  disabled={resetDraw.isPending}
+                >
+                  <RefreshCw className="mr-2 h-5 w-5" />
+                  {resetDraw.isPending ? "Đang đặt lại…" : "Đặt Lại Bốc Thăm"}
+                </Button>
+              )}
             </div>
           </div>
         )}

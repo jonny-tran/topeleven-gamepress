@@ -26,7 +26,7 @@ const STATUS_BADGE_VARIANTS: Record<string, "default" | "secondary" | "outline" 
 
 export default function PublicTournamentListPage() {
   const { data: tournaments } = useQuery(
-    trpc.tournament.list.queryOptions({ onlyPublic: true })
+    trpc.tournament.list.queryOptions({ onlyPublic: true, activeOnly: true })
   );
 
   return (

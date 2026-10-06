@@ -29,11 +29,7 @@ export default function StandingsPage({ params }: Props) {
   const [activeGroup, setActiveGroup] = useState<string>("A");
 
   const { data: tournament } = useQuery(
-    trpc.tournament.getById.queryOptions({
-      id: tournamentId,
-      includeDeleted: true,
-      includeNotPublic: true,
-    })
+    trpc.tournament.getById.queryOptions({ id: tournamentId })
   );
   const { data: allStandings } = useQuery(
     trpc.ranking.getAllStandings.queryOptions({ tournamentId })
@@ -216,20 +212,6 @@ function GroupScoreboard({
             <h2 className="font-display text-lg font-black tracking-tight">
               Bảng {code}
             </h2>
-            <p className="cn-section-title">{standings.length} đội · Vòng tròn</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {hasManual && (
-            <Badge variant="warning" className="font-mono text-[10px]">
-              Cần quyết định thủ công
-            </Badge>
-          )}
-          {/* Legend chips */}
-          <div className="hidden items-center gap-2 sm:flex">
-            <LegendChip tone="success" label="Vòng KO" />
-            <LegendChip tone="info" label="Playoff V16" />
           </div>
         </div>
       </div>
@@ -317,12 +299,6 @@ function GroupScoreboard({
             </div>
           )}
         </div>
-      </div>
-
-      {/* Legend mobile */}
-      <div className="flex items-center gap-3 sm:hidden">
-        <LegendChip tone="success" label="Vòng KO" />
-        <LegendChip tone="info" label="Playoff V16" />
       </div>
     </div>
   );

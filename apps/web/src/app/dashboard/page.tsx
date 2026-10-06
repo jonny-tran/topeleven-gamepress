@@ -1,46 +1,89 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
-import { Calendar, CheckCircle2, Mail, Shield, Trophy, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Calendar,
+  CheckCircle2,
+  Mail,
+  Shield,
+  Trophy,
+  User,
+} from "lucide-react";
 
 import SignOutButton from "@/components/sign-out-button";
-import { authClient } from "@/lib/auth-client";
 import { Button } from "@topEleven-gamepress/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@topEleven-gamepress/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@topEleven-gamepress/ui/components/card";
+import { Badge } from "@topEleven-gamepress/ui/components/badge";
+import { Skeleton } from "@topEleven-gamepress/ui/components/skeleton";
+import { trpc } from "@/utils/trpc";
+import { useViewer } from "@/hooks/use-viewer";
 
-export default async function DashboardPage() {
-  const session = await authClient.getSession({
-    fetchOptions: {
-      headers: await headers(),
-      throw: true,
-    },
-  });
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Quản trị viên toàn cục",
+  user: "Ban tổ chức",
+};
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessionAny = session as any;
-  if (!sessionAny?.user) {
-    redirect("/login");
+const STATUS_LABEL: Record<string, string> = {
+  setup: "Khởi tạo",
+  draw_in_progress: "Đang bốc thăm",
+  draw_completed: "Bốc thăm xong",
+  group_stage: "Vòng bảng",
+  knockout: "Loại trực tiếp",
+  completed: "Hoàn thành",
+};
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const { viewer, isAdmin, isLoggedIn, isLoading } = useViewer();
+
+  // Chỉ "Giải của tôi" — không phụ thuộc quyền admin.
+  const { data: myTournaments } = useQuery(
+    trpc.tournament.list.queryOptions(
+      {
+        scope: "mine",
+        includeArchived: true,
+        includeDeleted: false,
+      },
+      // Chưa đăng nhập thì đừng gọi: server sẽ trả 401.
+      { enabled: isLoggedIn }
+    )
+  );
+
+  useEffect(() => {
+    if (!isLoading && !isLoggedIn) {
+      router.push("/login");
+    }
+  }, [isLoading, isLoggedIn, router]);
+
+  if (isLoading || !isLoggedIn || !viewer) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 px-4 py-8 dark:from-slate-900 dark:to-slate-800">
+        <div className="mx-auto max-w-4xl space-y-6">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </div>
+    );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { user } = sessionAny as { user: { name?: string; email: string; emailVerified: boolean; createdAt?: Date; id: string } };
-
-  // Format the creation date
-  const createdAt = user.createdAt
-    ? new Date(user.createdAt).toLocaleDateString("vi-VN", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "N/A";
-
-  // Get user initials for avatar
-  const initials = (user.name || user.email || "A")
+  const initials = (viewer.name || viewer.email || "A")
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+  const tournaments = myTournaments ?? [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 px-4 py-8 dark:from-slate-900 dark:to-slate-800">
@@ -49,7 +92,11 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Bảng Điều Khiển</h1>
-            <p className="text-muted-foreground">Chào mừng trở lại trang quản trị</p>
+            <p className="text-muted-foreground">
+              {isAdmin
+                ? "Bạn có quyền quản trị toàn bộ giải đấu của hệ thống."
+                : "Quản lý các giải đấu thuộc sở hữu của bạn."}
+            </p>
           </div>
           <SignOutButton />
         </div>
@@ -62,10 +109,12 @@ export default async function DashboardPage() {
                 {initials}
               </div>
               <div>
-                <CardTitle className="text-2xl">{user.name || "Người Dùng"}</CardTitle>
+                <CardTitle className="text-2xl">
+                  {viewer.name || "Người Dùng"}
+                </CardTitle>
                 <CardDescription className="flex items-center gap-2">
                   <Shield className="h-4 w-4 text-primary" />
-                  Tài Khoản Quản Trị
+                  {ROLE_LABEL[viewer.role] ?? viewer.role}
                 </CardDescription>
               </div>
             </div>
@@ -79,37 +128,28 @@ export default async function DashboardPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-muted-foreground">Email</p>
-                  <p className="truncate font-medium">{user.email}</p>
+                  <p className="truncate font-medium">{viewer.email}</p>
                 </div>
               </div>
 
-              {/* Account Status */}
+              {/* Quyền */}
               <div className="flex items-center gap-3 rounded-lg border p-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
                   <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Trạng thái</p>
+                  <p className="text-sm font-medium text-muted-foreground">Quyền</p>
                   <p className="font-medium">
-                    {user.emailVerified ? (
-                      <span className="flex items-center gap-1 text-green-600">
-                        <CheckCircle2 className="h-4 w-4" /> Đã xác minh
+                    {isAdmin ? (
+                      <span className="text-green-600">
+                        Quản trị mọi giải đấu
                       </span>
                     ) : (
-                      <span className="text-yellow-600">Chờ xác minh</span>
+                      <span className="text-muted-foreground">
+                        Chỉ quản lý giải của mình
+                      </span>
                     )}
                   </p>
-                </div>
-              </div>
-
-              {/* Member Since */}
-              <div className="flex items-center gap-3 rounded-lg border p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30">
-                  <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Tham Gia Từ</p>
-                  <p className="font-medium">{createdAt}</p>
                 </div>
               </div>
 
@@ -120,10 +160,48 @@ export default async function DashboardPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-muted-foreground">User ID</p>
-                  <p className="truncate font-mono text-xs">{user.id}</p>
+                  <p className="truncate font-mono text-xs">{viewer.id}</p>
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Giải của tôi */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>Giải Đấu Của Tôi</CardTitle>
+            <CardDescription>
+              {tournaments.length === 0
+                ? "Bạn chưa sở hữu giải đấu nào."
+                : `Bạn đang phụ trách ${tournaments.length} giải đấu.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {tournaments.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                Bấm <span className="font-medium">Tạo Giải Mới</span> để bắt đầu.
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {tournaments.map((t) => (
+                  <li key={t.id}>
+                    <Link
+                      href={`/admin/tournaments/${t.id}`}
+                      className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:bg-muted/40"
+                    >
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {t.name}
+                      </span>
+                      <Badge variant="outline" className="shrink-0">
+                        {STATUS_LABEL[t.status] ?? t.status}
+                      </Badge>
+                      <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 
@@ -131,14 +209,14 @@ export default async function DashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Thao Tác Nhanh</CardTitle>
-            <CardDescription>Các tác vụ quản trị thường dùng</CardDescription>
+            <CardDescription>Các tác vụ thường dùng</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
               <Link href="/admin/tournaments">
                 <Button variant="outline" className="h-20 w-full flex-col gap-2 text-sm">
                   <Trophy className="h-5 w-5" />
-                  Quản Lý Giải Đấu
+                  {isAdmin ? "Tất cả Giải Đấu" : "Giải Đấu Của Tôi"}
                 </Button>
               </Link>
               <Link href="/admin/tournaments/new">
